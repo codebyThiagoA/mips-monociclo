@@ -1,12 +1,12 @@
 MIPS Monociclo em Verilog
 
-O Projeto
+1. O Projeto
 
 Este projeto implementa um processador MIPS monociclo em Verilog, desenvolvido para a disciplina de Sistemas Digitais (UFPE). O processador executa um conjunto de instruções MIPS, incluindo addi, add, sw, e lw, em um único ciclo de clock. O programa de teste configura registradores ($s0=10, $s1=20, $t0=30, $t1=30) e realiza operações de memória (mem[10]=30).
 
 Equipe: Ana Clara dos Santos, Guilherme Barbosa, Igor Raphael, Rodrigo Neves, Thiago Bernardo.
 
-Estrutura do Projeto
+2. Estrutura do Projeto
 
 O MIPS monociclo é composto por módulos Verilog, cada um implementando uma parte do processador:
 
@@ -42,7 +42,7 @@ SignExtend e Mux: Suportam extensão de sinal e seleção de dados.
 
 O módulo principal, MIPS_Monocycle, integra todos os componentes.
 
-Ferramentas
+3. Ferramentas
 
 
 
@@ -62,7 +62,7 @@ Comunicação: Discord e Google Meet.
 
 Documentação: Canva.
 
-Estrutura do Repositório
+4. Estrutura do Repositório
 
 
 
@@ -86,7 +86,7 @@ instruction_mem.v: Memória de instruções.
 
 pc_pc+4.v: Módulos PC e PC+4.
 
-Resultados
+5. Resultados
 
 
 

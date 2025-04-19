@@ -1,58 +1,90 @@
-module FUMMips (input clk);
+`timescale 1ns/1ps
 
-	reg [15:0] pc;
-	wire [15:0] next_pc;
+module MIPS_Monocycle (
+    input logic clk,
+    input logic rst
+);
+    logic [31:0] pc, pc_next;
+    logic [31:0] instruction;
+    logic [4:0] rs, rt, rd, wa3;
+    logic [15:0] imm16;
+    logic [31:0] reg_data1, reg_data2, write_data;
+    logic [31:0] sign_ext_imm;
+    logic [31:0] alu_input_b, alu_result, mem_data;
+    logic [2:0] alu_op;
+    logic reg_dst, alu_src, mem_to_reg, reg_write, mem_read, mem_write, branch;
+    logic zero;
 
-	wire inst_memread;
-	wire [15:0] instruction;
-	wire RegDst, Jump, Branch, MemRead, MemToReg, MemWrite, ALUSrc, RegWrite, SignExt;
-	wire [3:0] ALUOp;
-	wire [2:0] reg_dest_mux_to_wirte_register;
-	wire [15:0] mem_to_reg_mux_to_write_data, rf_readdata1, rf_readdata2;
-	wire [15:0] sign_extension_out;
-	wire [3:0] ALUOperation;
-	wire [15:0] ALU_source_mux_to_ALU;
-	wire zero, less_than, greater_than, bcond;
-	wire [15:0] ALU_result;
-	wire [15:0] memory_read_data;
-	wire [15:0] pc_plus_2, pc_branch, pc_jump, branch_mux_to_jump_mux;
+    // PC e Incremento
+    pc_register pc_reg (
+        .clk(clk), .rst(rst), .enable(1'b1), .pc_next(pc_next), .pc(pc)
+    );
+    pc_adder pc_add (
+        .pc(pc), .pc_next(pc_next)
+    );
 
-	// PC logic
-	initial pc <= 16'b0;
-	
-	always @(posedge clk) pc <= next_pc;
-	
-	assign pc_plus_2 = pc + 2;
-	assign pc_branch = pc_plus_2 + (sign_extension_out << 1);
-	assign pc_jump = {pc[15:13], instruction[11:0], {1'b0}};
+    // Memória de Instruções
+    InstructionMemory instr_mem (
+        .address(pc), .instruction(instruction)
+    );
 
-	assign inst_memread = 1'b1;
+    // Decodificação da Instrução
+    assign rs = instruction[25:21];
+    assign rt = instruction[20:16];
+    assign rd = instruction[15:11];
+    assign imm16 = instruction[15:0];
 
+    // Unidade de Controle
+    control_unit ctrl (
+        .opcode(instruction[31:26]),
+        .funct(instruction[5:0]),
+        .RegDst(reg_dst),
+        .ALUSrc(alu_src),
+        .MemtoReg(mem_to_reg),
+        .RegWrite(reg_write),
+        .MemRead(mem_read),
+        .MemWrite(mem_write),
+        .Branch(branch),
+        .ALUOp(alu_op)
+    );
 
-	IMemBank instruction_memory(.memread(inst_memread), .address(pc), .readdata(instruction));	
+    // Banco de Registradores
+    Mux2to1_5 reg_dst_mux (
+        .in0(rt), .in1(rd), .sel(reg_dst), .out(wa3)
+    );
+    RegFile regfile (
+        .clk(clk), .we3(reg_write),
+        .ra1(rs), .ra2(rt), .wa3(wa3),
+        .wd3(write_data), .rd1(reg_data1), .rd2(reg_data2)
+    );
 
-	controlUnit control_unit(instruction[15:12], RegDst, Jump, Branch, MemRead, MemToReg, MemWrite, ALUSrc, RegWrite, SignExt, ALUOp);
+    // Extensão de Sinal
+    SignExtend se (
+        .imm(imm16), .extended(sign_ext_imm)
+    );
 
-	mux #(3) reg_dest_mux(RegDst, instruction[8:6], instruction[5:3], reg_dest_mux_to_wirte_register);
+    // MUX para ALU
+    Mux2to1_32 alu_mux (
+        .in0(reg_data2), .in1(sign_ext_imm),
+        .sel(alu_src), .out(alu_input_b)
+    );
 
-	RegFile register_file(clk, instruction[11:9], instruction[8:6], reg_dest_mux_to_wirte_register, mem_to_reg_mux_to_write_data, RegWrite, rf_readdata1, rf_readdata2);
+    // ALU
+    ALU alu (
+        .a(reg_data1), .b(alu_input_b), .alu_control(alu_op),
+        .result(alu_result), .zero(zero)
+    );
 
-	signExtend sign_extension(SignExt, instruction[5:0], sign_extension_out);
+    // Memória de Dados
+    DataMemory data_mem (
+        .clk(clk), .memRead(mem_read), .memWrite(mem_write),
+        .addr(alu_result[7:0]), .writeData(reg_data2),
+        .readData(mem_data)
+    );
 
-	ALUControlUnit ALU_control_unit(ALUOp, instruction[2:0], ALUOperation);
-
-	mux #(16) ALU_source_mux(ALUSrc, rf_readdata2, sign_extension_out, ALU_source_mux_to_ALU);
-
-	ALU alu(rf_readdata1, ALU_source_mux_to_ALU, ALUOperation, ALU_result, zero, less_than, greater_than);
-
-	branchControlUnit branch_control_unit(instruction[15:12], zero, less_than, greater_than, bcond);
-
-	DMemBank data_memory(clk, MemRead, MemWrite, ALU_result, rf_readdata2, memory_read_data);
-
-	mux #(16) data_memory_read_data_mux(MemToReg, ALU_result, memory_read_data, mem_to_reg_mux_to_write_data);
-	
-	mux #(16) branch_mux((Branch & bcond), pc_plus_2, pc_branch, branch_mux_to_jump_mux);
-
-	mux #(16) jump_mux(Jump, branch_mux_to_jump_mux, pc_jump, next_pc);
-
+    // MUX de Write-Back
+    Mux2to1_32 wb_mux (
+        .in0(alu_result), .in1(mem_data), .sel(mem_to_reg),
+        .out(write_data)
+    );
 endmodule

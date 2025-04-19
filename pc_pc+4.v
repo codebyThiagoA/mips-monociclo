@@ -1,17 +1,25 @@
-module branchControlUnit
-	(
-		input [3:0] op,
-		input z, lt, gt,
-		output reg bcond
-	);
+`timescale 1ns/1ps
 
-	always@(*) begin
-		case(op)
-			4'b1001: bcond = z; //beq
-			4'b1010: bcond = ~z; //bne
-			4'b1011: bcond = lt; //blt
-			4'b1100: bcond = gt; //bgt
-			default: bcond = 1'b0;
-		endcase
-	end
+// Módulo pc_register
+module pc_register (
+    input wire clk,
+    input wire rst,
+    input wire enable,
+    input wire [31:0] pc_next,
+    output reg [31:0] pc
+);
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            pc <= 32'b0;
+        else if (enable)
+            pc <= pc_next;
+    end
+endmodule
+
+// Módulo pc_adder
+module pc_adder (
+    input wire [31:0] pc,
+    output wire [31:0] pc_next
+);
+    assign pc_next = pc + 32'd4;
 endmodule

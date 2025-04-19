@@ -1,12 +1,7 @@
-// sign extension module
-module signExtend
-	(
-		input SignExt,
-		input [5:0] data,
-		output [15:0] out
-	);
-
-	assign out = (SignExt) ? {{10{data[5]}}, data[5:0]} : {{10{1'b0}}, data[5:0]};
+// Módulo SignExtend
+module SignExtend (
+    input logic [15:0] imm,
+    output logic [31:0] extended
+);
+    assign extended = {{16{imm[15]}}, imm};
 endmodule
-
-	
